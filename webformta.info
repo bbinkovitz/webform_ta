@@ -1,0 +1,3 @@
+name = Webform TA
+description = Allows the use of webforms as quizzes, with grading, conditional answer-giving for students, and easily maintained answer keys for teachers.
+core = 7.x

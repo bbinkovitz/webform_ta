@@ -1,0 +1,124 @@
+<?php
+$answers = array();
+function webformta_form_alter(&$form, &$form_state, $form_id) {
+        $arg = arg();
+    if (isset($form['#node']->field_webform_type['und'][0]['value']) && $form['#node']->field_webform_type['und'][0]['value'] == 'Quiz' && $arg[2] != 'edit'){ // only do this for Quiz type webforms and not any edit pages.
+        dsm($form['#node']->field_webform_type['und'][0]['value']);
+        $nid = $arg[1];
+        $query = new EntityFieldQuery;              // this EntityFieldQuery searches through Entities for Nodes that point to the current Webform.
+        $result = $query
+            ->entityCondition('entity_type', 'node')
+            ->propertyCondition('status', 1)
+            ->propertyCondition('type', 'quiz_answer_key')     
+            ->fieldCondition('field_answer_quiz', 'nid', $nid, '=')
+            ->execute();
+        $results        = $query->ordered_results;
+        $questions      = $form['#node']->webform['components'];
+        $question_tally = count($questions);
+        $ans_key_id     = $results[0]->entity_id;
+        $ans_node       = node_load($ans_key_id);       //once the correct node has been identified, load the contents of that node and suss out the answers 
+        global $answers;
+        $answers        = $ans_node->field_answer_answers['und'];
+        $answer_tally   = count($answers);
+        $msg = NULL;
+        if ( $answer_tally == $question_tally ) { dsm('All\'s well --- question tally matches answer tally.'); }
+        else { dsm('The number of questions in the quiz doesn\'t match the number of questions in the answer key!'); }
+    }
+    elseif ($form['#form_id'] == 'quiz_answer_key_node_form'){                                          // if it's an answer key
+            $form['foo'] = array(
+              '#type' => 'textfield',
+              '#title' => t('bar'),
+              '#default_value' => t('foo'),
+              '#size' => 60,
+              '#maxlength' => 64,
+              '#description' => t('baz'),
+            );
+            $form['#submit'][] = 'webformta_answerkey_submit';
+        $form_field_answer_quiz_nid = $form_state['node']->field_answer_quiz['und'][0]['nid'];          // suss out the quiz it goes with
+        $quiz_form_id = 'webform_client_form_'.$form_field_answer_quiz_nid;
+        $submission = array();
+        $enabled = TRUE;
+        $preview = FALSE;
+        $quiz_node = node_load($form_field_answer_quiz_nid);
+        $quiz_form = drupal_get_form($quiz_form_id, $quiz_node, $submission, $enabled, $preview);
+        dsm('quizform');
+        dsm($quiz_form);
+        $quiz_node_val = $quiz_node->field_webform_type['und'][0]['value'];                             // double-check that it is, in fact, a Quiz      
+        if ($quiz_node_val == 'Quiz'){                                                                  
+            dsm('This answer key goes with webform quiz with NID = ' .$form_field_answer_quiz_nid);
+        }
+    }
+}
+
+function webformta_answerkey_submit($form, &$form_state) {
+    dsm('form_state node:');
+    dsm($form_state['node']);
+    $foo = $form_state['input']['foo'];
+    $values = $form_state['values']['field_answer_answers']['und'];
+    $count = 0;
+    foreach ($values as $value){
+        $count += 1;
+    }
+    $form_state['values']['field_answer_answers']['und'][$count]['value'] = $foo;
+    $form_state['values']['field_answer_answers']['und'][$count]['_weight'] = $count;
+    dsm($form_state);
+}
+
+/**
+ * Implements hook_webform_validation_validate(). This is only called if at least one validation rule is set on the webform.
+ */
+function webformta_webform_validation_validate($validator_name, $items, $components, $rule) {    
+    global $answers;
+    $answer_key = array();
+    foreach ( $answers as $answer ) {
+        $answer_key[] = $answer['value'];
+    }
+    dsm($answer_key);
+    $count = 0;
+    dsm($items);
+    foreach ($items as $item) { 
+                //if($item == $answers[$count]['value']){
+                $key_val = $answer_key[$count]['value'];
+                $count = $count+1;
+            }
+ //   $s = NULL;
+ //   if($correct <> 1){ $s = 's'; }
+//    $percent = (($correct)/($count))*100;
+//    if($percent >= 80){
+//    $msg = 'Good job!';
+//    }
+//    else{
+//    $msg = 'Oops! You need at least 80% correct to pass.';
+//    }
+//    $msg .= ' '.$correct . ' correct answer'. $s . ' out of ' . ($count) . ' questions gives a score of ' . $percent.'%';    
+//    $percent = (($correct)/($count))*100;
+//    if($percent >= 80){
+//    $msg .= ' You pass!';
+//    }
+//    else{
+//    $msg .= ' You fail.';
+//    }
+//    dsm($msg);
+//    if( $percent >= 80 && $percent < 100 ){
+//    }
+}
+
+/**
+* Implements hook_help.
+*
+* Displays help and module information.
+*
+* @param path
+*   Which path of the site we're using to display help
+* @param arg
+*   Array that holds the current path as returned from arg() function
+*/
+function webformta_help($path, $arg) {
+  switch ($path) {
+    case "admin/help#webformta":
+      return '<p>'.  t("Grades quizzes like a TA. Works with Webform.") .'</p>';
+      break;
+  }
+} 
+
+
